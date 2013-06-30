@@ -28,7 +28,7 @@
  *                     usually 389.
  *
  * AUTH_BIND_DN        The LDAP distinguished name of the user account
- *                     used t query a user object from the directory.
+ *                     used to query a user object from the directory.
  *
  * AUTH_BIND_PASSWORD  The password of the user account used to query
  *                     a user object from the directory.
