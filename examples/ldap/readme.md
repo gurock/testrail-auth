@@ -10,4 +10,4 @@ http://docs.gurock.com/testrail-integration/auth-introduction
 
 -- 
 Copyright Gurock Software GmbH. All rights reserved.
-http://www.gurock.com/ - contact@gurock.com
+http://www.gurock.com/
