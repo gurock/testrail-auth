@@ -12,5 +12,6 @@ following website:
 http://docs.gurock.com/testrail-integration/auth-introduction
 
 -- 
-Copyright Gurock Software GmbH. All rights reserved.
+Copyright Gurock Software GmbH. See license.md for details.
+
 http://www.gurock.com/

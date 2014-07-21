@@ -4,7 +4,7 @@
  * This is a TestRail authentication script to integrate TestRail with
  * LDAP services to implement single sign-on.
  *
- * Copyright 2011 Gurock Software GmbH. All rights reserved.
+ * Copyright Gurock Software GmbH. See license.md for details.
  * http://www.gurock.com - contact@gurock.com
  *
  **********************************************************************
