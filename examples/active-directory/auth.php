@@ -60,10 +60,8 @@
  * AUTH_FALLBACK       Allow users to continue login with their TestRail
  *                     credentials in addition to the Active Directory
  *                     login. If enabled, TestRail tries to authenticate
- *                     the user with her TestRail credentials if an email
- *                     address is entered. If a username is entered (not
- *                     an email address), TestRail authenticates the user
- *                     against Active Directory.
+ *                     the user with her TestRail credentials if the AD
+ *                     authentication fails and an email address is entered.
  *
  * AUTH_MEMBERSHIP     (Optionally) verifies if a user is member of the
  *                     security group(s). Must be a regular expression
@@ -206,23 +204,8 @@ function _ad_lookup_user($handle, $name)
 	);
 }
 
-/**
- * Authenticate User
- *
- * Custom auth function for authenticating a TestRail user against an
- * Active Directory server. Returns a TestRail AuthResult object or
- * throws an exception in case of an error (connection, for example).
- */
-function authenticate_user($name, $password)
+function _ad_authenticate($name, $password)
 {
-	if (AUTH_FALLBACK)
-	{
-		if (check::email($name))
-		{
-			return new AuthResultFallback();
-		}
-	}
-
 	if (!function_exists('ldap_connect'))
 	{
 		throw new AuthException(
@@ -266,6 +249,32 @@ function authenticate_user($name, $password)
 	$result->name = $user['name'];
 	$result->create_account = AUTH_CREATE_ACCOUNT;
 	return $result;
+}
+
+/**
+ * Authenticate User
+ *
+ * Custom auth function for authenticating a TestRail user against an
+ * Active Directory server. Returns a TestRail AuthResult object or
+ * throws an exception in case of an error (connection, for example).
+ */
+function authenticate_user($name, $password)
+{
+	try
+	{
+		return _ad_authenticate($name, $password);
+	}
+	catch (Exception $e)
+	{
+		if (AUTH_FALLBACK)
+		{
+			if (check::email($name))
+			{
+				return new AuthResultFallback();
+			}
+		}
+		throw $e;
+	}
 }
 
 // ldap_escape was added with PHP 5.6 but is not available with older
