@@ -4,8 +4,8 @@
  * This is a TestRail authentication script to integrate TestRail with
  * LDAP services to implement single sign-on.
  *
- * Copyright Gurock Software GmbH. See license.md for details.
- * http://www.gurock.com - contact@gurock.com
+ * Copyright Gurock Software GmbH. All rights reserved.
+ * http://www.gurock.com/ - contact@gurock.com
  *
  **********************************************************************
  *
@@ -13,7 +13,7 @@
  * this implementation in particular, please visit the following
  * website:
  *
- * http://code.gurock.com/p/testrail-auth/
+ * http://docs.gurock.com/testrail-integration/auth-introduction
  *
  **********************************************************************
  *
@@ -36,7 +36,7 @@
  *                     If both settings, AUTH_BIND_DN as well as
  *                     AUTH_BIND_PASSWORD, are left blank, TestRail
  *                     will try to use anonymous authentication.
- * 
+ *
  * AUTH_DN             The base LDAP distinguished name to find and
  *                     authenticate users against. This must include at
  *                     least the top OU, CN and/or DC entries. This
@@ -46,14 +46,14 @@
  *                     Example 1: OU=people,DC=example,DC=com
  *                     Example 2: DC=example,DC=com
  *
- * AUTH_FILTER         The filter expression that is used to find and 
+ * AUTH_FILTER         The filter expression that is used to find and
  *                     retrieve the directory object of the user who
  *                     is authenticated. The expression has to follow the
  *                     common LDAP filter syntax.
  *
- *                     When performing the search, the placeholder %name% will
- *                     be replaced with the username that was entered on
- *                     TestRail's login page.
+ *                     When performing the search, the placeholder %name%
+ *                     will be replaced with the username that was entered
+ *                     on TestRail's login page.
  *
  *                     Example: (&(uid=%name%)(objectClass=posixAccount))
  *
@@ -70,19 +70,19 @@
  *
  * AUTH_FALLBACK       Allow users to continue login with their TestRail
  *                     credentials in addition to the LDAP Directory
- *                     login. If enabled, TestRail tries to authenticate 
+ *                     login. If enabled, TestRail tries to authenticate
  *                     the user with her TestRail credentials if an email
- *                     address is entered. If a username is entered, TestRail
- *                     authenticates the user against LDAP Directory.
+ *                     address is entered. If a username is entered,
+ *                     TestRail authenticates the user against LDAP.
  *
  * AUTH_NAME_ATTRIBUTE The name of the attribute that stores the user's
- *                     full name. This attribute is used when a new 
+ *                     full name. This attribute is used when a new
  *                     TestRail user account is created.
  *
  * AUTH_MAIL_ATTRIBUTE The name of the attribute that stores the user's
  *                     email address. This attribute is used to link
  *                     LDAP user records to TestRail user accounts.
- */ 
+ */
 
 define('AUTH_HOST', 'ldap://ldap.example.com');
 define('AUTH_PORT', 389);
@@ -94,7 +94,7 @@ define('AUTH_FALLBACK', true);
 define('AUTH_CREATE_ACCOUNT', false);
 define('AUTH_NAME_ATTRIBUTE', 'displayname');
 define('AUTH_MAIL_ATTRIBUTE', 'mail');
- 
+
 function authenticate_user($name, $password)
 {
 	if (AUTH_FALLBACK)
@@ -102,17 +102,19 @@ function authenticate_user($name, $password)
 		if (check::email($name))
 		{
 			return new AuthResultFallback();
-		}		
+		}
 	}
 
 	if (!function_exists('ldap_connect'))
 	{
-		throw new AuthException('LDAP functionality not available. ' .
-			'Please install the LDAP module for PHP.');
+		throw new AuthException(
+			'LDAP functionality not available. ' .
+			'Please install the LDAP module for PHP.'
+		);
 	}
-	
+
 	// First try to find the user record of the user
-	try 
+	try
 	{
 		$ldap_user = _ldap_get_user_data($name);
 	}
@@ -125,7 +127,7 @@ function authenticate_user($name, $password)
 			)
 		);
 	}
-	
+
 	// Try to authenticate against LDAP with the found DN and
 	// entered password
 	$dn = _ldap_get_single_value($ldap_user, 'dn');
@@ -142,14 +144,15 @@ function authenticate_user($name, $password)
 	catch (Exception $e)
 	{
 		throw new AuthException(
-			'Could not validate LDAP user, please check user name and password.');
+			'Could not validate LDAP user, please check user name and password.'
+		);
 	}
 
 	// Read the user attributes and return the successful authentication
 	// result to TestRail
 	$mail = _ldap_get_single_value($ldap_user, AUTH_MAIL_ATTRIBUTE);
 	$display_name = _ldap_get_single_value($ldap_user, AUTH_NAME_ATTRIBUTE);
-	
+
 	$result = new AuthResultSuccess($mail);
 	$result->name = $display_name;
 	$result->create_account = AUTH_CREATE_ACCOUNT;
@@ -162,6 +165,8 @@ function _ldap_get_user_data($name)
 		AUTH_BIND_DN, AUTH_BIND_PASSWORD);
 	try
 	{
+		$name = ldap_escape($name, null, LDAP_ESCAPE_FILTER);
+
 		$search = @ldap_search(
 			$handle,
 			AUTH_DN,
@@ -173,21 +178,23 @@ function _ldap_get_user_data($name)
 		{
 			_ldap_throw_error($handle, 'Search');
 		}
-		
-		$records = ldap_get_entries($handle, $search);			
+
+		$records = ldap_get_entries($handle, $search);
 		if (!$records || !isset($records['count']))
 		{
 			throw new AuthException(
-				'Received invalid search result.');
+				'Received invalid search result.'
+			);
 		}
-		
+
 		$count = (int) $records['count'];
 		if ($count != 1)
 		{
 			throw new AuthException(
-				'Could not find user object in LDAP Directory.');
+				'Could not find user object in LDAP Directory.'
+			);
 		}
-		
+
 		$row = $records[0];
 	}
 	catch (Exception $e)
@@ -196,7 +203,7 @@ function _ldap_get_user_data($name)
 		throw $e;
 	}
 	_ldap_close_connection($handle);
-	
+
 	return $row;
 }
 
@@ -208,24 +215,24 @@ function _ldap_open_connection($host, $port, $dn, $password)
 	{
 		_ldap_throw_error($handle, 'Connect');
 	}
-	
+
 	ldap_set_option($handle, LDAP_OPT_PROTOCOL_VERSION, 3);
-	
+
 	// Bind to LDAP directory. This does the actual connection attempt
 	// and can fail if the configured server is not reachable.
-	if (($dn <> '') && ($password <> '')) 
+	if (($dn <> '') && ($password <> ''))
 	{
 		if (!@ldap_bind($handle, $dn, $password))
 		{
 			_ldap_throw_error($handle, 'Bind');
 		}
-	} 
+	}
 	// Try anonymous login
 	elseif (!@ldap_bind($handle))
 	{
 		_ldap_throw_error($handle, 'Bind');
 	}
-	
+
 	return $handle;
 }
 
@@ -251,4 +258,90 @@ function _ldap_throw_error($handle, $prefix = null)
 {
 	throw new AuthException(($prefix ? $prefix . ': ' : '') .
 		ldap_error($handle));
+}
+
+// ldap_escape was added with PHP 5.6 but is not available with older
+// PHP versions. The author of ldap_escape posted a version for older
+// PHP versions on StackOverflow:
+//
+// http://stackoverflow.com/questions/8560874/php-ldap-add-function-to-escape-ldap-special-characters-in-dn-syntax
+//
+// The code is made available by the author under the creative commons
+// (cc by-sa 3.0) license, and included below for compatibility with
+// older PHP versions.
+//
+// http://creativecommons.org/licenses/by-sa/3.0/
+
+if (!function_exists('ldap_escape')) {
+	define('LDAP_ESCAPE_FILTER', 0x01);
+	define('LDAP_ESCAPE_DN',     0x02);
+
+	/**
+	 * @param string $subject The subject string
+	 * @param string $ignore Set of characters to leave untouched
+	 * @param int $flags Any combination of LDAP_ESCAPE_* flags to indicate the
+	 *                   set(s) of characters to escape.
+	 * @return string
+	 */
+	function ldap_escape($subject, $ignore = '', $flags = 0)
+	{
+		static $charMaps = array(
+			LDAP_ESCAPE_FILTER => array('\\', '*', '(', ')', "\x00"),
+			LDAP_ESCAPE_DN     => array('\\', ',', '=', '+', '<', '>', ';', '"', '#'),
+		);
+
+		// Pre-process the char maps on first call
+		if (!isset($charMaps[0])) {
+			$charMaps[0] = array();
+			for ($i = 0; $i < 256; $i++) {
+				$charMaps[0][chr($i)] = sprintf('\\%02x', $i);;
+			}
+
+			for ($i = 0, $l = count($charMaps[LDAP_ESCAPE_FILTER]); $i < $l; $i++) {
+				$chr = $charMaps[LDAP_ESCAPE_FILTER][$i];
+				unset($charMaps[LDAP_ESCAPE_FILTER][$i]);
+				$charMaps[LDAP_ESCAPE_FILTER][$chr] = $charMaps[0][$chr];
+			}
+
+			for ($i = 0, $l = count($charMaps[LDAP_ESCAPE_DN]); $i < $l; $i++) {
+				$chr = $charMaps[LDAP_ESCAPE_DN][$i];
+				unset($charMaps[LDAP_ESCAPE_DN][$i]);
+				$charMaps[LDAP_ESCAPE_DN][$chr] = $charMaps[0][$chr];
+			}
+		}
+
+		// Create the base char map to escape
+		$flags = (int)$flags;
+		$charMap = array();
+		if ($flags & LDAP_ESCAPE_FILTER) {
+			$charMap += $charMaps[LDAP_ESCAPE_FILTER];
+		}
+		if ($flags & LDAP_ESCAPE_DN) {
+			$charMap += $charMaps[LDAP_ESCAPE_DN];
+		}
+		if (!$charMap) {
+			$charMap = $charMaps[0];
+		}
+
+		// Remove any chars to ignore from the list
+		$ignore = (string)$ignore;
+		for ($i = 0, $l = strlen($ignore); $i < $l; $i++) {
+			unset($charMap[$ignore[$i]]);
+		}
+
+		// Do the main replacement
+		$result = strtr($subject, $charMap);
+
+		// Encode leading/trailing spaces if LDAP_ESCAPE_DN is passed
+		if ($flags & LDAP_ESCAPE_DN) {
+			if ($result[0] === ' ') {
+				$result = '\\20' . substr($result, 1);
+			}
+			if ($result[strlen($result) - 1] === ' ') {
+				$result = substr($result, 0, -1) . '\\20';
+			}
+		}
+
+		return $result;
+	}
 }
