@@ -26,7 +26,7 @@
  *
  * AUTH_PORT           The LDAP port of the directory server. This is
  *                     usually 389.
- * 
+ *
  * AUTH_DN             The base LDAP Distinguished Name to find and
  *                     authenticate users against. This MUST include at
  *                     least the top OU, CN and/or DC entries. This
@@ -59,13 +59,13 @@
  *
  * AUTH_FALLBACK       Allow users to continue login with their TestRail
  *                     credentials in addition to the Active Directory
- *                     login. If enabled, TestRail tries to authenticate 
+ *                     login. If enabled, TestRail tries to authenticate
  *                     the user with her TestRail credentials if an email
  *                     address is entered. If a username is entered (not
  *                     an email address), TestRail authenticates the user
  *                     against Active Directory.
  *
- * AUTH_MEMBERSHIP     (Optionally) verifies if a user is member of the 
+ * AUTH_MEMBERSHIP     (Optionally) verifies if a user is member of the
  *                     security group(s). Must be a regular expression
  *                     that is checked against all memberOf values. If one
  *                     of the entries matches, the user is authenticated.
@@ -73,7 +73,7 @@
  *                     denied.
  *
  *                     Example: /^CN=My Group,/
- */ 
+ */
 
 define('AUTH_HOST', 'ad1.directory.example.com');
 define('AUTH_PORT', 389);
@@ -99,62 +99,62 @@ function _ad_lookup_user($handle, $name)
 	// The account name can be given as 'domain\login', 'login@domain'
 	// or just 'login'. We require just the login part for creating
 	// the search, so we need to remove the domain part here, if any.
-	
+
 	$ix = strpos($name, '\\'); // Check for 'domain\login'
 	if ($ix !== false)
 	{
 		$login = substr($name, $ix + 1);
 	}
 	else
-	{			
+	{
 		$ix = strpos($name, '@'); // Check for 'login@domain'
 		if ($ix !== false)
 		{
 			$login = substr($name, 0, $ix);
 		}
-		else 
+		else
 		{
 			$login = $name; // Just 'login'
 		}
 	}
 
 	$login = ldap_escape($login, null, LDAP_ESCAPE_FILTER);
-	
+
 	// Initiate a search for the given active directory account to
 	// find out the display name and email of the user (which are
 	// required to lookup the TestRail user in the database or create
 	// a new TestRail account).
-	
+
 	$search = @ldap_search(
 		$handle,
 		AUTH_DN,
 		"(sAMAccountName=$login)",
 		array('displayname', 'mail', 'memberOf')
 	);
-	
+
 	if (!$search)
 	{
 		_ad_throw_error($handle, 'Search');
 	}
-	
+
 	// Get the records for our search and extract the information
 	// we need to lookup the user (display name and email).
-	
+
 	$records = ldap_get_entries($handle, $search);
 	if (!$records || !isset($records['count']))
 	{
 		throw new AuthException('Received invalid search result.');
 	}
-	
+
 	$count = (int) $records['count'];
 	if ($count != 1)
 	{
 		throw new AuthException(
 			'Could not find user object in Active Directory.');
 	}
-	
+
 	$row = $records[0];
-	
+
 	// We found the user record, check the group membership if
 	// required
 	if (AUTH_MEMBERSHIP)
@@ -162,11 +162,11 @@ function _ad_lookup_user($handle, $name)
 		if (!isset($row['memberof']))
 		{
 			throw new AuthException(
-				'User is not a member of required security group ' . 
+				'User is not a member of required security group ' .
 				'(no memberships defined for user).'
 			);
 		}
-		
+
 		$memberof = $row['memberof'];
 		if (!isset($memberof['count']))
 		{
@@ -174,7 +174,7 @@ function _ad_lookup_user($handle, $name)
 				'Could not verify group membership (no membership count).'
 			);
 		}
-		
+
 		$found = false;
 		for ($i = 0; $i < $memberof['count']; $i++)
 		{
@@ -184,14 +184,14 @@ function _ad_lookup_user($handle, $name)
 					'Could not verify group membership (missing entry).'
 				);
 			}
-			
+
 			if (preg_match(AUTH_MEMBERSHIP, $memberof[$i]))
 			{
 				$found = true;
 				break;
 			}
 		}
-		
+
 		if (!$found)
 		{
 			throw new AuthException(
@@ -199,11 +199,11 @@ function _ad_lookup_user($handle, $name)
 			);
 		}
 	}
-	
+
 	return array(
 		'name' => _ad_get_property($row, 'displayname'),
 		'email' => _ad_get_property($row, 'mail')
-	);	
+	);
 }
 
 /**
@@ -220,7 +220,7 @@ function authenticate_user($name, $password)
 		if (check::email($name))
 		{
 			return new AuthResultFallback();
-		}		
+		}
 	}
 
 	if (!function_exists('ldap_connect'))
@@ -234,7 +234,7 @@ function authenticate_user($name, $password)
 	// We allow to to specify the domain account as 'domain\login',
 	// 'login@domain' or just 'login'. But since the active directory
 	// requires the domain part, we add it here if necessary.
-	
+
 	if (strpos($name, '\\') === false)
 	{
 		if (strpos($name, '@') === false)
@@ -248,20 +248,20 @@ function authenticate_user($name, $password)
 	{
 		_ad_throw_error($handle, 'Connect');
 	}
-	
+
 	ldap_set_option($handle, LDAP_OPT_PROTOCOL_VERSION, 3);
 	ldap_set_option($handle, LDAP_OPT_REFERRALS, 0);
-	
+
 	// Bind to LDAP directory. This does the actual connection attempt
 	// and can fail if the configured server is not reachable.
 	if (!@ldap_bind($handle, $name, $password))
 	{
 		_ad_throw_error($handle, 'Bind');
 	}
-		
+
 	$user = _ad_lookup_user($handle, $name);
 	@ldap_unbind($handle);
-	
+
 	$result = new AuthResultSuccess($user['email']);
 	$result->name = $user['name'];
 	$result->create_account = AUTH_CREATE_ACCOUNT;

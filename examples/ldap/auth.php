@@ -36,7 +36,7 @@
  *                     If both settings, AUTH_BIND_DN as well as
  *                     AUTH_BIND_PASSWORD, are left blank, TestRail
  *                     will try to use anonymous authentication.
- * 
+ *
  * AUTH_DN             The base LDAP distinguished name to find and
  *                     authenticate users against. This must include at
  *                     least the top OU, CN and/or DC entries. This
@@ -46,7 +46,7 @@
  *                     Example 1: OU=people,DC=example,DC=com
  *                     Example 2: DC=example,DC=com
  *
- * AUTH_FILTER         The filter expression that is used to find and 
+ * AUTH_FILTER         The filter expression that is used to find and
  *                     retrieve the directory object of the user who
  *                     is authenticated. The expression has to follow the
  *                     common LDAP filter syntax.
@@ -70,19 +70,19 @@
  *
  * AUTH_FALLBACK       Allow users to continue login with their TestRail
  *                     credentials in addition to the LDAP Directory
- *                     login. If enabled, TestRail tries to authenticate 
+ *                     login. If enabled, TestRail tries to authenticate
  *                     the user with her TestRail credentials if an email
  *                     address is entered. If a username is entered,
  *                     TestRail authenticates the user against LDAP.
  *
  * AUTH_NAME_ATTRIBUTE The name of the attribute that stores the user's
- *                     full name. This attribute is used when a new 
+ *                     full name. This attribute is used when a new
  *                     TestRail user account is created.
  *
  * AUTH_MAIL_ATTRIBUTE The name of the attribute that stores the user's
  *                     email address. This attribute is used to link
  *                     LDAP user records to TestRail user accounts.
- */ 
+ */
 
 define('AUTH_HOST', 'ldap://ldap.example.com');
 define('AUTH_PORT', 389);
@@ -94,7 +94,7 @@ define('AUTH_FALLBACK', true);
 define('AUTH_CREATE_ACCOUNT', false);
 define('AUTH_NAME_ATTRIBUTE', 'displayname');
 define('AUTH_MAIL_ATTRIBUTE', 'mail');
- 
+
 function authenticate_user($name, $password)
 {
 	if (AUTH_FALLBACK)
@@ -102,7 +102,7 @@ function authenticate_user($name, $password)
 		if (check::email($name))
 		{
 			return new AuthResultFallback();
-		}		
+		}
 	}
 
 	if (!function_exists('ldap_connect'))
@@ -112,9 +112,9 @@ function authenticate_user($name, $password)
 			'Please install the LDAP module for PHP.'
 		);
 	}
-	
+
 	// First try to find the user record of the user
-	try 
+	try
 	{
 		$ldap_user = _ldap_get_user_data($name);
 	}
@@ -127,7 +127,7 @@ function authenticate_user($name, $password)
 			)
 		);
 	}
-	
+
 	// Try to authenticate against LDAP with the found DN and
 	// entered password
 	$dn = _ldap_get_single_value($ldap_user, 'dn');
@@ -152,7 +152,7 @@ function authenticate_user($name, $password)
 	// result to TestRail
 	$mail = _ldap_get_single_value($ldap_user, AUTH_MAIL_ATTRIBUTE);
 	$display_name = _ldap_get_single_value($ldap_user, AUTH_NAME_ATTRIBUTE);
-	
+
 	$result = new AuthResultSuccess($mail);
 	$result->name = $display_name;
 	$result->create_account = AUTH_CREATE_ACCOUNT;
@@ -166,7 +166,7 @@ function _ldap_get_user_data($name)
 	try
 	{
 		$name = ldap_escape($name, null, LDAP_ESCAPE_FILTER);
-		
+
 		$search = @ldap_search(
 			$handle,
 			AUTH_DN,
@@ -178,15 +178,15 @@ function _ldap_get_user_data($name)
 		{
 			_ldap_throw_error($handle, 'Search');
 		}
-		
-		$records = ldap_get_entries($handle, $search);			
+
+		$records = ldap_get_entries($handle, $search);
 		if (!$records || !isset($records['count']))
 		{
 			throw new AuthException(
 				'Received invalid search result.'
 			);
 		}
-		
+
 		$count = (int) $records['count'];
 		if ($count != 1)
 		{
@@ -194,7 +194,7 @@ function _ldap_get_user_data($name)
 				'Could not find user object in LDAP Directory.'
 			);
 		}
-		
+
 		$row = $records[0];
 	}
 	catch (Exception $e)
@@ -203,7 +203,7 @@ function _ldap_get_user_data($name)
 		throw $e;
 	}
 	_ldap_close_connection($handle);
-	
+
 	return $row;
 }
 
@@ -215,24 +215,24 @@ function _ldap_open_connection($host, $port, $dn, $password)
 	{
 		_ldap_throw_error($handle, 'Connect');
 	}
-	
+
 	ldap_set_option($handle, LDAP_OPT_PROTOCOL_VERSION, 3);
-	
+
 	// Bind to LDAP directory. This does the actual connection attempt
 	// and can fail if the configured server is not reachable.
-	if (($dn <> '') && ($password <> '')) 
+	if (($dn <> '') && ($password <> ''))
 	{
 		if (!@ldap_bind($handle, $dn, $password))
 		{
 			_ldap_throw_error($handle, 'Bind');
 		}
-	} 
+	}
 	// Try anonymous login
 	elseif (!@ldap_bind($handle))
 	{
 		_ldap_throw_error($handle, 'Bind');
 	}
-	
+
 	return $handle;
 }
 
