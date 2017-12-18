@@ -60,10 +60,8 @@
  * AUTH_FALLBACK       Allow users to continue login with their TestRail
  *                     credentials in addition to the Active Directory
  *                     login. If enabled, TestRail tries to authenticate
- *                     the user with her TestRail credentials if an email
- *                     address is entered. If a username is entered (not
- *                     an email address), TestRail authenticates the user
- *                     against Active Directory.
+ *                     the user with her TestRail credentials if the AD
+ *                     authentication fails.
  *
  * AUTH_MEMBERSHIP     (Optionally) verifies if a user is member of the
  *                     security group(s). Must be a regular expression
@@ -215,48 +213,53 @@ function _ad_lookup_user($handle, $name)
  */
 function authenticate_user($name, $password)
 {
-	if (AUTH_FALLBACK)
+	try {
+		if (!function_exists('ldap_connect'))
+		{
+			throw new AuthException(
+				'LDAP functionality not available. ' .
+				'Please install the LDAP module for PHP.'
+			);
+		}
+
+		// We allow to to specify the domain account as 'domain\login',
+		// 'login@domain' or just 'login'. But since the active directory
+		// requires the domain part, we add it here if necessary.
+
+		if (strpos($name, '\\') === false)
+		{
+			if (strpos($name, '@') === false)
+			{
+				$name = AUTH_DOMAIN . '\\' . $name;
+			}
+		}
+
+		$handle = @ldap_connect(AUTH_HOST, AUTH_PORT);
+		if (!$handle)
+		{
+			_ad_throw_error($handle, 'Connect');
+		}
+
+		ldap_set_option($handle, LDAP_OPT_PROTOCOL_VERSION, 3);
+		ldap_set_option($handle, LDAP_OPT_REFERRALS, 0);
+
+		// Bind to LDAP directory. This does the actual connection attempt
+		// and can fail if the configured server is not reachable.
+		if (!@ldap_bind($handle, $name, $password))
+		{
+			_ad_throw_error($handle, 'Bind');
+		}
+	}
+	catch (Exception $e)
 	{
-		if (check::email($name))
+		if (AUTH_FALLBACK)
 		{
 			return new AuthResultFallback();
 		}
-	}
-
-	if (!function_exists('ldap_connect'))
-	{
-		throw new AuthException(
-			'LDAP functionality not available. ' .
-			'Please install the LDAP module for PHP.'
-		);
-	}
-
-	// We allow to to specify the domain account as 'domain\login',
-	// 'login@domain' or just 'login'. But since the active directory
-	// requires the domain part, we add it here if necessary.
-
-	if (strpos($name, '\\') === false)
-	{
-		if (strpos($name, '@') === false)
+		else
 		{
-			$name = AUTH_DOMAIN . '\\' . $name;
+			throw $e;
 		}
-	}
-
-	$handle = @ldap_connect(AUTH_HOST, AUTH_PORT);
-	if (!$handle)
-	{
-		_ad_throw_error($handle, 'Connect');
-	}
-
-	ldap_set_option($handle, LDAP_OPT_PROTOCOL_VERSION, 3);
-	ldap_set_option($handle, LDAP_OPT_REFERRALS, 0);
-
-	// Bind to LDAP directory. This does the actual connection attempt
-	// and can fail if the configured server is not reachable.
-	if (!@ldap_bind($handle, $name, $password))
-	{
-		_ad_throw_error($handle, 'Bind');
 	}
 
 	$user = _ad_lookup_user($handle, $name);
