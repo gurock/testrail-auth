@@ -71,6 +71,9 @@
  *                     denied.
  *
  *                     Example: /^CN=My Group,/
+ *
+ * AUTH_USER_ATTRIBUTE Attribute to search when looking up users, for
+ *                     example sAMAccountName or userPrincipalName.
  */
 
 define('AUTH_HOST', 'ad1.directory.example.com');
@@ -80,6 +83,7 @@ define('AUTH_DOMAIN', 'directory');
 define('AUTH_CREATE_ACCOUNT', false);
 define('AUTH_FALLBACK', true);
 define('AUTH_MEMBERSHIP', '');
+define('AUTH_USER_ATTRIBUTE', 'sAMAccountName');
 
 function _ad_throw_error($handle, $prefix = null)
 {
@@ -98,21 +102,28 @@ function _ad_lookup_user($handle, $name)
 	// or just 'login'. We require just the login part for creating
 	// the search, so we need to remove the domain part here, if any.
 
-	$ix = strpos($name, '\\'); // Check for 'domain\login'
-	if ($ix !== false)
+	if(AUTH_USER_ATTRIBUTE === 'userPrincipalName')
 	{
-		$login = substr($name, $ix + 1);
+		$login = $name;
 	}
 	else
 	{
-		$ix = strpos($name, '@'); // Check for 'login@domain'
+		$ix = strpos($name, '\\'); // Check for 'domain\login'
 		if ($ix !== false)
 		{
-			$login = substr($name, 0, $ix);
+			$login = substr($name, $ix + 1);
 		}
 		else
 		{
-			$login = $name; // Just 'login'
+			$ix = strpos($name, '@'); // Check for 'login@domain'
+			if ($ix !== false)
+			{
+				$login = substr($name, 0, $ix);
+			}
+			else
+			{
+				$login = $name; // Just 'login'
+			}
 		}
 	}
 
@@ -126,7 +137,7 @@ function _ad_lookup_user($handle, $name)
 	$search = @ldap_search(
 		$handle,
 		AUTH_DN,
-		"(sAMAccountName=$login)",
+		sprintf('(%s=%s)', AUTH_USER_ATTRIBUTE, $login),
 		array('displayname', 'mail', 'memberOf')
 	);
 
